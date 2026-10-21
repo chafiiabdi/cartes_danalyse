@@ -1,5 +1,18 @@
 # Carte interactive PMR — Anglet
 
+## Nouvelle simulation interactive
+
+**[Ouvrir la carte PMR / BD TOPO](https://chafiiabdi.github.io/cartes_danalyse/simulation/)**
+
+Calcul à 300, 600 et 900 secondes depuis un accès prioritaire, réseaux séparés,
+motifs des non-conformités, escaliers bloquants et exclus, statistiques par longueur
+et export GeoJSON / CSV. [Documentation](docs/simulation/README.md).
+
+La version publiée se trouve dans `docs/` (source GitHub Pages : `main` / `docs`).
+Les fichiers à la racine ci-dessous correspondent à la carte précédente et sont conservés.
+
+## Carte précédente
+
 Placez dans `data/` quatre fichiers GeoJSON en EPSG:4326 :
 - `iso_300s.geojson`
 - `iso_600s.geojson`
