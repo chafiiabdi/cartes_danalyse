@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Simulation accessibilité PMR — Anglet</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css">
+<style>
+*{box-sizing:border-box}body{margin:0;font:14px system-ui,Arial,sans-serif;color:#17263b;background:#f4f7fb}#map{position:absolute;inset:0}
+.panel{position:absolute;z-index:5;left:16px;top:16px;width:355px;max-height:calc(100vh - 32px);overflow:auto;background:#fff;border:1px solid #dce4ed;box-shadow:0 10px 36px #1a38532c;border-radius:16px;padding:18px}
+h1{font-size:19px;line-height:1.25;margin:0 0 6px}h2{font-size:13px;margin:19px 0 8px;color:#536178;text-transform:uppercase;letter-spacing:.045em}p{line-height:1.45;color:#56667c;font-size:12px;margin:5px 0 12px}
+label{display:block;font-size:12px;font-weight:600;margin:10px 0 5px}select,button{font:inherit;width:100%;padding:10px;border-radius:9px;border:1px solid #cdd8e6;background:white;color:#17263b}
+button{background:#14599a;color:#fff;border:none;font-weight:700;cursor:pointer;margin-top:10px}button:hover{background:#0a467f}
+.segment{display:grid;grid-template-columns:1fr 1fr;gap:8px}.segment label{border:1px solid #dce4ed;border-radius:9px;padding:10px;margin:0;cursor:pointer}.segment input{accent-color:#14599a}
+.durations{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px}.durations label{display:flex;align-items:center;gap:4px;border:1px solid #dce4ed;padding:8px 5px;border-radius:9px;margin:0}
+.legend{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;margin-top:13px}.key{display:flex;align-items:center;gap:6px}.dot{width:18px;height:5px;border-radius:4px;display:inline-block}
+#status{font-size:12px;margin-top:12px;line-height:1.45;white-space:pre-wrap;color:#475569}#counts{font-size:12px;margin-top:9px;line-height:1.7;font-variant-numeric:tabular-nums}
+.note{padding:9px;background:#fff6eb;color:#774319;border-radius:8px;margin-top:14px;font-size:11px;line-height:1.5}
+.popup{background:white;box-shadow:0 5px 24px #0a2f4d4a;border-radius:12px;padding:14px;max-width:330px;max-height:360px;overflow:auto;font-size:12px;line-height:1.5}
+.popup strong{font-size:15px}.popup dl{display:grid;grid-template-columns:95px 1fr;gap:6px}.popup dt{color:#65758d}.popup dd{margin:0;overflow-wrap:anywhere}
+#close{float:right;background:none;color:#43546c;border:0;width:auto;margin:0;padding:0 4px;font-size:20px}
+.ol-zoom{left:auto;right:14px;top:16px}@media(max-width:700px){.panel{left:8px;right:8px;top:8px;width:auto;max-height:47vh;padding:12px}.ol-zoom{top:auto;bottom:20px}.popup{max-width:260px}}
+</style></head>
+<body><div id="map"></div>
+<aside class="panel"><h1>Accessibilité PMR — Anglet</h1><p>Simulation des cheminements depuis un accès prioritaire. Résultats pgRouting enregistrés le 20 octobre 2026.</p>
+<label for="acces">Accès prioritaire de départ</label><select id="acces"><option value="">Chargement…</option></select>
+<h2>Réseau étudié</h2><div class="segment"><label><input type="radio" name="network" value="pmr" checked> PMR / CNIG</label><label><input type="radio" name="network" value="bdtopo"> BD TOPO</label></div>
+<h2>Temps de parcours</h2><div class="durations"><label><input type="checkbox" class="duration" value="300" checked>5 min</label><label><input type="checkbox" class="duration" value="600" checked>10 min</label><label><input type="checkbox" class="duration" value="900" checked>15 min</label></div>
+<h2>Classification des tronçons</h2><div class="legend"><label class="key"><input class="classe" type="checkbox" value="0" checked><span class="dot" style="background:#1c9a74"></span>Conforme</label><label class="key"><input class="classe" type="checkbox" value="1" checked><span class="dot" style="background:#d9484e"></span>Non conforme</label><label class="key"><input class="classe" type="checkbox" value="2" checked><span class="dot" style="background:#d6a03d"></span>Inconnu</label><label class="key"><input type="checkbox" id="stairs" checked><span class="dot" style="background:#8328a8"></span>Escaliers exclus</label></div>
+<button id="calculate">Afficher l'accessibilité</button>
+<div id="status" role="status">Initialisation…</div><div id="counts"></div>
+<div class="note"><b>Attention :</b> cette carte montre les portions issues d'une simulation pgRouting pré-calculée, pas un nouveau calcul serveur. Les tronçons non conformes ou inconnus visibles dans les résultats ne prouvent pas qu'ils sont franchissables. Les escaliers sont exclus du routage.</div>
+</aside><div id="popup" class="popup" style="display:none"><button id="close" aria-label="Fermer">×</button><div id="popuptext"></div></div>
+<script src="https://cdn.jsdelivr.net/npm/ol@10.6.1/dist/ol.js"></script><script>
+"use strict";
+const $=id=>document.getElementById(id), ROOT='./data/', files=new Map();
+const colors={0:'#168b70',1:'#db4150',2:'#d4a02b'};
+const source=new ol.source.Vector(),stairSource=new ol.source.Vector(),pointSource=new ol.source.Vector();
+const view=new ol.View({center:ol.proj.fromLonLat([-1.52,43.49]),zoom:12});
+const map=new ol.Map({target:'map',layers:[
+new ol.layer.Tile({source:new ol.source.OSM()}),
+new ol.layer.Vector({source,style:f=>new ol.style.Style({stroke:new ol.style.Stroke({color:colors[f.get('classe')]||'#777',width: f.get('duree')===300?5:f.get('duree')===600?4:3})})}),
+new ol.layer.Vector({source:stairSource,style:new ol.style.Style({stroke:new ol.style.Stroke({color:'#842bb4',width:4,lineDash:[7,5]})})}),
+new ol.layer.Vector({source:pointSource,style:f=>new ol.style.Style({image:new ol.style.Circle({radius:f.get('selected')?9:5,fill:new ol.style.Fill({color:f.get('selected')?'#064fa5':'#fcffff'}),stroke:new ol.style.Stroke({color:'#0b589a',width:2})}),zIndex:f.get('selected')?100:1})})],view});
+const overlay=new ol.Overlay({element:$('popup'),autoPan:true,positioning:'bottom-center',offset:[0,-10]});map.addOverlay(overlay);
+$('close').onclick=()=>{overlay.setPosition(undefined);$('popup').style.display='none'};
+const format=new ol.format.GeoJSON({dataProjection:'EPSG:4326',featureProjection:'EPSG:3857'});
+let accesses=[],stairs=[];
+function displayError(e){$('status').textContent='Erreur : '+String(e.message||e);}
+async function jsonFile(name){if(!files.has(name))files.set(name,fetch(ROOT+name).then(async r=>{if(!r.ok)throw new Error(name+': HTTP '+r.status);return r.json()}));return files.get(name)}
+function groupRange(n){const start=Math.floor((n-1)/5)*5+1;return [start,Math.min(start+4,70)]}
+function makeFeature(coords,row,network){return new ol.Feature({geometry:new ol.geom.LineString(coords.map(c=>ol.proj.fromLonLat(c))),network,acces:row[0],duree:row[1],troncon:row[2],classe:row[3],type:row[4],motifs:row[5],manques:row[6],vitesse:row[7],pente:row[8],devers:row[9],largeur:row[10]})}
+async function calculate(){const id=Number($('acces').value),network=document.querySelector('[name=network]:checked').value; if(!id)return; const durations=new Set([...document.querySelectorAll('.duration:checked')].map(e=>+e.value)); const classes=new Set([...document.querySelectorAll('.classe:checked')].map(e=>+e.value));if(!durations.size){$('status').textContent='Sélectionnez au moins une durée.';return}
+$('calculate').disabled=true;$('status').textContent='Chargement du réseau '+network+'…';
+try{const [lo,hi]=groupRange(id),data=await jsonFile(network+'_'+lo+'_'+hi+'.json');source.clear();let total=0,skipped=0;for(const row of data.features){if(+row[0]!==id||!durations.has(+row[1]))continue;total++;if(!classes.has(+row[3])||/escal/i.test(row[4])){skipped++;continue}const coord=row[11];if(!Array.isArray(coord)||coord.length<2)continue;source.addFeature(makeFeature(coord,row,network))}
+stairSource.setVisible($('stairs').checked);let extent=source.getExtent();const pt=pointSource.getFeatures().find(f=>+f.get('id')===id);if(pt){extent=ol.extent.createEmpty();ol.extent.extend(extent,source.getExtent());ol.extent.extend(extent,pt.getGeometry().getExtent())}
+if(!ol.extent.isEmpty(extent))view.fit(extent,{maxZoom:17,padding:[65,50,65,window.innerWidth>700?385:50],duration:350});
+const count=[0,1,2].map(c=>source.getFeatures().filter(f=>f.get('classe')===c).length);
+$('counts').textContent='Portions affichées : '+source.getFeatures().length+' | Conforme : '+count[0]+' · Non conforme : '+count[1]+' · Inconnu : '+count[2];
+$('status').textContent='Accès '+id+' — '+(accesses.find(a=>a.id===id)?.nom||'')+'\nRéseau : '+(network==='pmr'?'PMR / CNIG':'BD TOPO')+'\n'+(total-skipped)+' portions visibles sur '+total+' résultats sélectionnés.';
+pointSource.getFeatures().forEach(f=>f.set('selected',+f.get('id')===id));
+} catch(e){displayError(e)}finally{$('calculate').disabled=false}}
+function popupFeature(f,coordinate){const labels={0:'Conforme',1:'Non conforme',2:'Inconnu'},pairs=[['Réseau',f.get('network')],['Classe',labels[f.get('classe')]||'Escalier non conforme'],['Durée',f.get('duree')?f.get('duree')+' s':'Exclu'],['Tronçon',f.get('troncon')||f.get('id')],['Type',f.get('type')],['Motifs',f.get('motifs')],['Informations à vérifier',f.get('manques')],['Vitesse (km/h)',f.get('vitesse')],['Pente (%)',f.get('pente')],['Dévers (%)',f.get('devers')],['Largeur (m)',f.get('largeur')]];
+const container=$('popuptext');container.replaceChildren();const header=document.createElement('strong');header.textContent=f.get('id')?'Escalier — exclu du calcul':'Fiche du tronçon';container.append(header);const dl=document.createElement('dl');for(const [key,val] of pairs){if(val===null||val===undefined||val==='')continue;const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=key;dd.textContent=String(val);dl.append(dt,dd)}container.append(dl);$('popup').style.display='block';overlay.setPosition(coordinate)}
+map.on('singleclick',evt=>{const f=map.forEachFeatureAtPixel(evt.pixel,f=>f,{hitTolerance:6});if(!f){$('popup').style.display='none';return}if(f.get('id')&&!f.get('type')){$('acces').value=f.get('id');calculate();return}popupFeature(f,evt.coordinate)});
+document.querySelectorAll('.duration,.classe,[name=network],#stairs').forEach(e=>e.addEventListener('change',()=>{if(e.id==='stairs'){stairSource.setVisible(e.checked)}else calculate()}));$('calculate').onclick=calculate;
+async function init(){try{[accesses,stairs]=await Promise.all([jsonFile('acces.json'),jsonFile('escaliers.json')]);const selector=$('acces');selector.replaceChildren();for(const a of accesses){const option=document.createElement('option');option.value=a.id;option.textContent=a.nom+' — accès '+a.id;selector.append(option);const f=new ol.Feature({geometry:new ol.geom.Point(ol.proj.fromLonLat([+a.lon,+a.lat])),id:a.id,nom:a.nom,selected:false});pointSource.addFeature(f)}
+for(const e of stairs){const g=format.readGeometry(e.geoj);stairSource.addFeature(new ol.Feature({geometry:g,network:e.reseau,id:e.id,classe:1,type:e.type,motifs:e.motif||'Escalier : exclu du calcul'}))}
+selector.value=String(accesses[0]?.id||'');selector.onchange=calculate;await calculate();}catch(e){displayError(e)}}
+init();
+</script></body></html>
