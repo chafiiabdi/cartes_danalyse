@@ -11,3 +11,10 @@
 @media(max-width:1000px){.workspace{grid-template-columns:310px 1fr}.intro,.parameters,.results{padding-left:20px;padding-right:20px}.topbar{padding:0 20px}.top-title{font-size:13px}.brand div>span{display:none}.source-link{font-size:10px}.map-toolbar{left:14px;right:14px;top:14px}.map-toolbar button{font-size:10px}.display-controls label{display:none}.notice{left:14px;right:14px;top:64px}.connection{left:14px;right:14px;top:142px}.legend{left:14px;width:210px;padding:14px}.inspection{right:14px;bottom:35px;width:calc(100% - 28px)}.legend:has(~.inspection:not([hidden])){display:none}h1{font-size:30px}}
 @media(max-width:700px){.topbar{height:60px;padding:0 14px}.brand-icon{width:32px;height:32px;font-size:21px}.brand strong{font-size:11px}.top-title{font-size:11px}.pill{font-size:8px;padding:4px}.source-link{display:none}.workspace{height:auto;display:flex;flex-direction:column}.sidebar{overflow:visible;border:0}.intro{padding:20px 20px 0}.eyebrow{font-size:9px}h1{font-size:27px;margin:7px 0}h1 br{display:none}h1 em{margin-left:6px}.intro p{font-size:11px}.parameters{padding:15px 20px}.field{margin:12px 0}.results{padding:18px 20px}.metrics strong{font-size:25px}.method,footer{display:none}.map-area{height:70dvh;min-height:470px;order:1}.sidebar{display:contents}.intro,.parameters,.results{order:0}.results{order:2}.map-toolbar button{padding:8px}.notice{font-size:9px}.connection{font-size:10px;top:134px}.legend{width:200px;bottom:30px;padding:12px}.legend label{font-size:9px;margin:8px 0}.inspection{max-height:60%}.map-error{top:195px}.ol-zoom{right:14px}.result-name{margin-bottom:10px}.distribution{margin-top:14px}}
 @media print{.topbar,.sidebar,.map-toolbar,.notice,.connection,.ol-control{display:none}.workspace{display:block;height:auto}.map-area{height:90vh}.legend{box-shadow:none}}
+
+/* Masquer l'identité graphique et les messages flottants sur la carte, sans changer les calculs. */
+.topbar .brand,
+.map-area .notice,
+.map-area .connection {
+  display: none !important;
+}
