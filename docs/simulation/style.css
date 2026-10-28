@@ -18,3 +18,11 @@
 .map-area .connection {
   display: none !important;
 }
+
+/* Export cartographique du résultat et symboles des arrêts prioritaires. */
+.map-export{margin-top:16px;padding-top:15px;border-top:1px solid var(--border)}
+.map-export>strong{display:block;font-size:12px;color:var(--ink);margin-bottom:10px}
+.map-export .exports button{background:#eaf4ef;border-color:#b9d9c9;color:#155f50}
+.map-export .exports button:hover:not(:disabled){background:#d5ecdf}
+.map-export .hint{margin:9px 0 0}
+.legend .bus-legend{width:23px;height:27px;object-fit:contain;flex-shrink:0;margin-left:-2px;margin-right:1px}
