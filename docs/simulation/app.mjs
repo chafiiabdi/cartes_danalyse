@@ -20,7 +20,8 @@ function lineStyle(color,width,dash) {
   return styleCache.get(key);
 }
 function report(message,error=false){$('status').textContent=message;$('status').classList.toggle('error',error);}
-function showError(message){$('mapError').hidden=false;$('mapError').textContent=message;report(message,true);}
+function hideLoadingAlert(){const el=$('loadingAlert');if(el)el.hidden=true;}
+function showError(message){hideLoadingAlert();$('mapError').hidden=false;$('mapError').textContent=message;report(message,true);}
 function baseStyle(f){
   if(f.get('est_escalier'))return $('showStairs').checked ? lineStyle('#ae3340',3,[4,4]) : null;
   return $('showContext').checked ? lineStyle('#9aaea7aa',1.4) : null;
@@ -201,6 +202,15 @@ async function start(){
     $('dataDate').textContent='Export du '+new Date(datasets.pmr.metadata.exported_at).toLocaleDateString('fr-FR')+'. Données de calcul du '+new Date(datasets.pmr.metadata.source_calculated_at).toLocaleDateString('fr-FR')+'. Copie statique : les mises à jour de la base ne sont pas automatiques.';
     $('dataCount').textContent=number(graphs.pmr.edges.size+graphs.bdtopo.edges.size+graphs.osm.edges.size)+' segments · OpenLayers';
     loaded=true;setNetwork();
+    // Retirer l'avertissement après que les couches ont été affichées.
+    // Le délai de sécurité évite de bloquer le visiteur si des tuiles OSM tardent.
+    if(map){
+      let completed=false;
+      const done=()=>{if(completed)return;completed=true;hideLoadingAlert();map.un('rendercomplete',done);};
+      map.once('rendercomplete',done);
+      map.render();
+      setTimeout(done,4500);
+    }else hideLoadingAlert();
     document.querySelectorAll('input[name="network"]').forEach(el=>el.addEventListener('change',()=>{network=el.value;setNetwork();}));
     document.querySelectorAll('input[name="budget"]').forEach(el=>el.addEventListener('change',()=>{budget=Number(el.value);calculate(false);}));
     $('departure').addEventListener('change',()=>calculate(true));
