@@ -1,5 +1,6 @@
 import { CLASSES, BUDGETS, buildGraph, distances, intervalsAt, clipFeature, statistics, pointAt } from './routing.mjs';
 import { loadOsmDataset } from './osm-data.mjs';
+import { exportMap } from './cartographic-export.mjs';
 
 const $ = id => document.getElementById(id);
 const colors = {Conforme:'#147d68','Non conforme':'#c96025',Inconnu:'#8060a3'};
@@ -11,6 +12,8 @@ let network='pmr', budget=900, selectedId=1, loaded=false, result=null, dep=null
 const datasets={}, graphs={}, allowed=new Set(CLASSES);
 let departureFeatures=[], baseSource, stopSource, resultSource, connectionSource, selectedSource, map, geoformat;
 const styleCache=new Map();
+const busIcon=new ol.style.Icon({src:'./bus-stop.svg',anchor:[0.5,0.94],anchorXUnits:'fraction',anchorYUnits:'fraction',scale:0.48,crossOrigin:'anonymous'});
+const selectedBusIcon=new ol.style.Icon({src:'./bus-stop.svg',anchor:[0.5,0.94],anchorXUnits:'fraction',anchorYUnits:'fraction',scale:0.68,crossOrigin:'anonymous'});
 function lineStyle(color,width,dash) {
   const key=[color,width,dash].join(':');
   if(!styleCache.has(key))styleCache.set(key,new ol.style.Style({stroke:new ol.style.Stroke({color,width,lineDash:dash})}));
@@ -29,7 +32,7 @@ function resultStyle(f){
 function stopStyle(f){
   if(!$('showStops').checked)return null;
   const chosen=f.get('acces_id')===selectedId;
-  return new ol.style.Style({zIndex:chosen?10:1,image:new ol.style.Circle({radius:chosen?8:4,fill:new ol.style.Fill({color:chosen?'#173c36':'#355b73'}),stroke:new ol.style.Stroke({color:'#fff',width:chosen?3:1.5})}),text:chosen?new ol.style.Text({text:f.get('nom'),font:'600 12px Arial',offsetY:-21,fill:new ol.style.Fill({color:'#163b30'}),stroke:new ol.style.Stroke({color:'#fff',width:4})}):undefined});
+  return new ol.style.Style({zIndex:chosen?10:1,image:chosen?selectedBusIcon:busIcon,text:chosen?new ol.style.Text({text:f.get('nom'),font:'600 12px Arial',offsetY:-21,fill:new ol.style.Fill({color:'#163b30'}),stroke:new ol.style.Stroke({color:'#fff',width:4})}):undefined});
 }
 function initializeMap(){
   geoformat=new ol.format.GeoJSON({dataProjection:'EPSG:4326',featureProjection:'EPSG:3857'});
@@ -91,7 +94,7 @@ function setNetwork(){
 function clearResult(){
   result=null;resultSource.clear();connectionSource.clear();closeInspection();$('connection').hidden=true;
   $('totalLength').textContent='—';$('edgeCount').textContent='—';$('stats').replaceChildren();$('distribution').replaceChildren();
-  $('geojson').disabled=true;$('csv').disabled=true;
+  $('geojson').disabled=true;$('csv').disabled=true;$('mapPng').disabled=true;$('mapPdf').disabled=true;
 }
 function calculate(fit=false){
   if(!loaded)return;
@@ -114,7 +117,7 @@ function calculate(fit=false){
     connectionSource.addFeatures(readFeatures(connector));
     $('connection').textContent='Raccord : '+number(d.distance_raccord_m,1)+' m · '+number(d.temps_raccord_s,1)+' s inclus. '+d.statut_raccord.replace(/^Calculable : /,'')+'.';
     $('connection').hidden=false;
-    $('geojson').disabled=false;$('csv').disabled=false;
+    $('geojson').disabled=false;$('csv').disabled=false;$('mapPng').disabled=false;$('mapPdf').disabled=false;
     report('Calcul terminé · '+number(performance.now()-start)+' ms · escaliers exclus'+(result.stats.total===0?' · aucun tronçon atteint.':'.'));
     const params=new URLSearchParams({reseau:network,acces:selectedId,duree:budget});history.replaceState(null,'','#'+params);
     if(fit)fitResult();
@@ -157,6 +160,20 @@ function inspect(feature,reached){
   if(p.id_netex)body.append(text('p','Référence : '+p.id_netex));
   replaceSource(selectedSource,[new ol.Feature({geometry:feature.getGeometry().clone()})]);$('inspection').hidden=false;
 }
+async function downloadCartography(kind){
+  if(!result||!dep)return;
+  const btn=$(kind==='pdf'?'mapPdf':'mapPng');
+  try{
+    btn.disabled=true;
+    report('Préparation de la carte '+kind.toUpperCase()+'…');
+    await exportMap({map,format:kind,network,budget,selectedId,accessName:dep.properties.nom,stats:result.stats,
+      colorMode:$('colorMode').value,allowed:new Set(allowed),showStairs:$('showStairs').checked,
+      showContext:$('showContext').checked,showStops:$('showStops').checked,
+      sourceDate:datasets[network].metadata?.source_calculated_at});
+    report('Carte '+kind.toUpperCase()+' téléchargée · A4 paysage, titre, échelle, orientation, légende et sources.');
+  }catch(error){report('Export cartographique : '+error.message,true);}
+  finally{btn.disabled=false;}
+}
 function download(kind){
   if(!result)return;
   const features=result.byBudget[budget].map(p=>clipFeature(p,budget,selectedId));
@@ -190,6 +207,8 @@ async function start(){
     let searchTimer;$('search').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>{populateDepartures();calculate(false);},140);});
     $('calculate').addEventListener('click',()=>calculate(true));
     $('geojson').addEventListener('click',()=>download('geojson'));$('csv').addEventListener('click',()=>download('csv'));
+    $('mapPng').addEventListener('click',()=>downloadCartography('png'));
+    $('mapPdf').addEventListener('click',()=>downloadCartography('pdf'));
   }catch(error){showError(error.message);}
 }
 start();
