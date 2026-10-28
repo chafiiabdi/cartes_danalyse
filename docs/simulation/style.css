@@ -26,3 +26,14 @@
 .map-export .exports button:hover:not(:disabled){background:#d5ecdf}
 .map-export .hint{margin:9px 0 0}
 .legend .bus-legend{width:23px;height:27px;object-fit:contain;flex-shrink:0;margin-left:-2px;margin-right:1px}
+
+/* Message de patience : apparaît immédiatement, puis disparaît quand les couches sont prêtes. */
+.loading-alert{position:absolute;z-index:9;top:50%;left:50%;transform:translate(-50%,-50%);width:min(410px,calc(100% - 32px));display:flex;align-items:flex-start;gap:14px;padding:18px 20px;background:#fffffff2;border:1px solid #c7d9cf;border-radius:12px;box-shadow:0 12px 36px #163a3030;pointer-events:none}
+.loading-alert p{margin:0;font-size:12px;line-height:1.55;color:#61766d}
+.loading-alert strong{display:block;color:#173d34;font-size:14px;margin-bottom:5px}
+.loading-alert p span{display:block}
+.loading-spinner{flex:none;width:23px;height:23px;margin-top:2px;border:3px solid #dcece4;border-top-color:#147d68;border-radius:50%;animation:map-loading-spin 1s linear infinite}
+@keyframes map-loading-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.loading-spinner{animation:none;border-top-color:#147d68}}
+@media(max-width:700px){.loading-alert{padding:14px;gap:10px;top:42%}.loading-alert strong{font-size:12px}.loading-alert p{font-size:11px}}
+@media print{.loading-alert{display:none!important}}
