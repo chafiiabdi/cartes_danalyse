@@ -1,4 +1,5 @@
 import { CLASSES, BUDGETS, buildGraph, distances, intervalsAt, clipFeature, statistics, pointAt } from './routing.mjs';
+import { loadOsmDataset } from './osm-data.mjs';
 
 const $ = id => document.getElementById(id);
 const colors = {Conforme:'#147d68','Non conforme':'#c96025',Inconnu:'#8060a3'};
@@ -84,7 +85,7 @@ function setNetwork(){
   currentGraph=graphs[network];
   replaceSource(baseSource,readFeatures(datasets[network]));
   replaceSource(stopSource,readFeatures({type:'FeatureCollection',features:departureFeatures.filter(f=>f.properties.reseau===network)}));
-  $('networkInfo').textContent=number(currentGraph.edges.size)+' tronçons · '+(network==='pmr'?'cheminements PMR relevés':'BD TOPO seule')+' · calcul indépendant';
+  $('networkInfo').textContent=number(currentGraph.edges.size)+' tronçons · '+(network==='pmr'?'cheminements PMR relevés':network==='osm'?'OSM piéton · accessibilité indicative':'BD TOPO seule')+' · calcul indépendant';
   populateDepartures();calculate(true);
 }
 function clearResult(){
@@ -101,7 +102,7 @@ function calculate(fit=false){
   if(!dep){$('resultName').textContent='Aucun accès sélectionné';report('Recherchez puis choisissez un accès.');return;}
   const d=dep.properties;
   const selectionParams=new URLSearchParams({reseau:network,acces:selectedId,duree:budget});history.replaceState(null,'','#'+selectionParams);
-  $('resultName').textContent=d.nom+' · accès '+d.acces_id+' · '+(network==='pmr'?'PMR':'BD TOPO');
+  $('resultName').textContent=d.nom+' · accès '+d.acces_id+' · '+(network==='pmr'?'PMR':network==='osm'?'OSM':'BD TOPO');
   if(!d.calculable){report(d.statut_raccord,true);$('connection').textContent=d.statut_raccord+'. Aucun cheminement calculé.';$('connection').hidden=false;if(fit)fitResult();return;}
   try{
     const start=performance.now(), dist=distances(currentGraph,dep);
@@ -140,7 +141,7 @@ function inspect(feature,reached){
   const p=feature.getProperties(), body=$('inspectionContent');body.replaceChildren();
   const badge=text('span',p.est_escalier?'Bloquant · escalier exclu':p.classe_pmr,'badge '+(p.est_escalier?'stairs':p.classe_pmr==='Non conforme'?'nonconform':p.classe_pmr==='Inconnu'?'unknown':''));
   body.append(badge,text('h2','Tronçon '+p.id));
-  body.append(text('p',(p.typtronco||'Type inconnu')+' · '+(network==='pmr'?'Réseau PMR':'BD TOPO')));
+  body.append(text('p',(p.typtronco||'Type inconnu')+' · '+(network==='pmr'?'Réseau PMR':network==='osm'?'OSM':'BD TOPO')));
   body.append(text('p',p.est_escalier?'Parcours interdit : ce tronçon n’entre jamais dans le calcul.':reached?'Portion atteinte en '+p.duree_s/60+' minutes dans la simulation.':'Réseau hors résultat : tronçon non atteint ou portion située au-delà de la durée choisie.'));
   const grid=text('div','','detail-grid');
   const metric=(name,value)=>{const box=text('div','');box.append(text('span',name),text('b',value));grid.append(box);};
@@ -176,10 +177,12 @@ async function start(){
     const data=await Promise.all(['pmr','bdtopo','departs'].map(name=>fetchJSON('./data/'+name+'.geojson')));
     datasets.pmr=data[0];datasets.bdtopo=data[1];departureFeatures=data[2].features;
     graphs.pmr=buildGraph(data[0],'pmr');graphs.bdtopo=buildGraph(data[1],'bdtopo');
-    const params=new URLSearchParams(location.hash.slice(1));if(['pmr','bdtopo'].includes(params.get('reseau')))network=params.get('reseau');if(BUDGETS.includes(Number(params.get('duree'))))budget=Number(params.get('duree'));if(Number(params.get('acces'))>0)selectedId=Number(params.get('acces'));
+    const osm=await loadOsmDataset(fetchJSON,departureFeatures);
+    datasets.osm=osm.dataset;graphs.osm=buildGraph(osm.dataset,'osm');departureFeatures.push(...osm.departures);
+    const params=new URLSearchParams(location.hash.slice(1));if(['pmr','bdtopo','osm'].includes(params.get('reseau')))network=params.get('reseau');if(BUDGETS.includes(Number(params.get('duree'))))budget=Number(params.get('duree'));if(Number(params.get('acces'))>0)selectedId=Number(params.get('acces'));
     document.querySelector('input[name="network"][value="'+network+'"]').checked=true;document.querySelector('input[name="budget"][value="'+budget+'"]').checked=true;
     $('dataDate').textContent='Export du '+new Date(datasets.pmr.metadata.exported_at).toLocaleDateString('fr-FR')+'. Données de calcul du '+new Date(datasets.pmr.metadata.source_calculated_at).toLocaleDateString('fr-FR')+'. Copie statique : les mises à jour de la base ne sont pas automatiques.';
-    $('dataCount').textContent=number(graphs.pmr.edges.size+graphs.bdtopo.edges.size)+' tronçons · OpenLayers';
+    $('dataCount').textContent=number(graphs.pmr.edges.size+graphs.bdtopo.edges.size+graphs.osm.edges.size)+' segments · OpenLayers';
     loaded=true;setNetwork();
     document.querySelectorAll('input[name="network"]').forEach(el=>el.addEventListener('change',()=>{network=el.value;setNetwork();}));
     document.querySelectorAll('input[name="budget"]').forEach(el=>el.addEventListener('change',()=>{budget=Number(el.value);calculate(false);}));
