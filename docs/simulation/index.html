@@ -30,6 +30,10 @@
       <footer>ANGLET · ANALYSE TERRITORIALE <span id="dataCount"></span></footer>
     </aside>
     <section class="map-area" aria-label="Carte et inspection des tronçons">
+      <div id="loadingAlert" class="loading-alert" role="status" aria-live="polite">
+        <span class="loading-spinner" aria-hidden="true"></span>
+        <p><strong>Chargement des couches en cours…</strong><span>La carte contient de nombreuses données. Merci de patienter quelques instants pour voir toutes les informations.</span></p>
+      </div>
       <div id="map" tabindex="0" aria-label="Carte interactive. Cliquez sur un accès pour le sélectionner ou sur un tronçon pour consulter ses motifs."></div>
       <div class="map-toolbar"><div class="display-controls"><label for="colorMode">Colorer par</label><select id="colorMode"><option value="class">Classe PMR</option><option value="time">Temps de parcours</option></select></div><button id="fit" title="Cadrer le résultat">⌖ <span>Cadrer</span></button><button id="allExtent" title="Voir tout le réseau">Tout le réseau</button></div>
       <div class="notice"><span aria-hidden="true">ⓘ</span><p><strong>Simulation exploratoire</strong> · Les non-conformités peuvent être franchies dans le calcul. Le résultat ne garantit pas la praticabilité réelle.</p></div>
