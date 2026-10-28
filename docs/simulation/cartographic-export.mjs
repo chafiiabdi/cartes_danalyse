@@ -120,7 +120,7 @@ function sidePanel(ctx,opts){
     yy+=73;
   }
   if(opts.colorMode==='time'){
-    for(const t of [300,600,900].filter(v=>v<=opts.budget))item('0–'+t/60+' min',TIMES[t]);
+    for(const t of [300,600,900].filter(v=>v<=opts.budget))item('Atteignable en '+t/60+' min',TIMES[t]);
   }else{
     for(const key of ['Conforme','Non conforme','Inconnu']){
       if(opts.allowed.has(key))item(key,COLORS[key]);
