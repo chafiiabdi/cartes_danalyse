@@ -74,7 +74,7 @@
             total++;
             if(!classes.has(cl))continue;
             const row=[id,duration,edgeId,cl,typ,cl===1?'OSM : cheminement difficile':cl===2?'OSM : accessibilité estimée, à vérifier':'OSM : accessibilité indiquée','','',null,null,null,clip(e,f0,f1)];
-            source.addFeature(makeFeature(row,'osm'));counted++;
+            source.addFeature(makeFeature(row[11],row,'osm'));counted++;
           }
         }
       }
