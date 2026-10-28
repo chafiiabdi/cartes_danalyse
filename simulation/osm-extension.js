@@ -8,6 +8,7 @@
     const label = document.createElement('label');
     label.innerHTML = '<input type="radio" name="network" value="osm"> OSM';
     selector.append(label);
+    label.querySelector('input').addEventListener('change',()=>{if(label.querySelector('input').checked)calculate();});
     const notice = document.querySelector('.note');
     if (notice) notice.textContent += ' Réseau OSM : calcul navigateur sur les données du 28 octobre 2026. Tracés indicatifs, raccordements et accessibilité à vérifier.';
   }
