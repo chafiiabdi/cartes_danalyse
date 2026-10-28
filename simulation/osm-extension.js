@@ -92,4 +92,24 @@
     finally{btn.disabled=false;}
   };
   addOSMChoice();
+  // Restaurer un lien direct OSM sans modifier les mécanismes PMR / BD TOPO.
+  if (location.hash.includes('reseau=osm')) {
+    window.addEventListener('load', () => {
+      const params=new URLSearchParams(location.hash.slice(1));
+      const requested=Number(params.get('acces'))||1;
+      const wanted=Number(params.get('duree'))||900;
+      let tries=0;
+      const poll=setInterval(() => {
+        const select=document.getElementById('acces');
+        if(select && select.querySelector('option[value="'+requested+'"]')) {
+          clearInterval(poll);
+          select.value=String(requested);
+          const radio=document.querySelector('[name="network"][value="osm"]');
+          if(radio)radio.checked=true;
+          document.querySelectorAll('.duration').forEach(e=>{e.checked=(Number(e.value)===wanted);});
+          calculate();
+        } else if(++tries>80)clearInterval(poll);
+      },150);
+    }, {once:true});
+  }
 })();
