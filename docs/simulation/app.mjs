@@ -1,6 +1,7 @@
 import { CLASSES, BUDGETS, buildGraph, distances, intervalsAt, clipFeature, statistics, pointAt } from './routing.mjs';
 import { loadOsmDataset } from './osm-data.mjs';
 import { exportMap } from './cartographic-export.mjs';
+import { calculateAllStops } from './all-stops.mjs';
 
 const $ = id => document.getElementById(id);
 const colors = {Conforme:'#147d68','Non conforme':'#c96025',Inconnu:'#8060a3'};
@@ -79,10 +80,13 @@ function populateDepartures(){
   const q=normalize($('search').value);
   const candidates=departureFeatures.filter(f=>f.properties.reseau===network).sort((a,b)=>a.properties.nom.localeCompare(b.properties.nom,'fr')||a.properties.acces_id-b.properties.acces_id);
   const filtered=candidates.filter(f=>normalize([f.properties.nom,f.properties.acces_id,f.properties.stop_id].join(' ')).includes(q));
+  if(!q)selectAllHint();
+  function selectAllHint(){ /* Option disponible uniquement sans filtre actif. */ }
   const select=$('departure');select.replaceChildren();
+  if(!q)select.append(new Option('Tous les arrêts prioritaires · couverture globale','all'));
   for(const f of filtered){const p=f.properties;select.append(new Option(p.nom+' · accès '+p.acces_id+(p.stop_id?' · '+p.stop_id:'')+(!p.calculable?' · non raccordé':''),p.acces_id));}
   if(!filtered.length){select.append(new Option('Aucun accès correspondant',''));select.disabled=true;$('calculate').disabled=true;selectedId=null;}
-  else{select.disabled=false;$('calculate').disabled=false;if(!filtered.some(f=>f.properties.acces_id===selectedId))selectedId=filtered[0].properties.acces_id;select.value=String(selectedId);}
+  else{select.disabled=false;$('calculate').disabled=false;if(selectedId!=='all'&&!filtered.some(f=>f.properties.acces_id===selectedId))selectedId=filtered[0].properties.acces_id;select.value=String(selectedId);}
   $('searchInfo').textContent=filtered.length+' accès affichés sur '+candidates.length+' · sélection possible sur la carte';
 }
 function setNetwork(){
@@ -99,10 +103,24 @@ function clearResult(){
 }
 function calculate(fit=false){
   if(!loaded)return;
-  selectedId=Number($('departure').value)||null;
+  selectedId=$('departure').value==='all'?'all':(Number($('departure').value)||null);
   clearResult();
   dep=departureFeatures.find(f=>f.properties.reseau===network&&f.properties.acces_id===selectedId);
   $('resultBudget').textContent=budget/60+' min';stopSource.changed();
+  if(selectedId==='all'){
+    try{
+      const started=performance.now();
+      const all=calculateAllStops(currentGraph,departureFeatures);
+      result={byBudget:all.byBudget,stats:statistics(all.byBudget[budget]),allStops:true};
+      $('resultName').textContent='Tous les accès prioritaires · '+all.numberOfStops+' raccordables · '+network.toUpperCase();
+      renderResult();renderStats();
+      $('geojson').disabled=false;$('csv').disabled=false;$('mapPng').disabled=false;$('mapPdf').disabled=false;
+      report('Couverture globale calculée · '+number(performance.now()-started)+' ms · tronçons communs comptés une seule fois.');
+      history.replaceState(null,'','#'+new URLSearchParams({reseau:network,acces:'all',duree:budget}));
+      if(fit)fitResult();
+    }catch(error){clearResult();report(error.message,true);}
+    return;
+  }
   if(!dep){$('resultName').textContent='Aucun accès sélectionné';report('Recherchez puis choisissez un accès.');return;}
   const d=dep.properties;
   const selectionParams=new URLSearchParams({reseau:network,acces:selectedId,duree:budget});history.replaceState(null,'','#'+selectionParams);
@@ -128,6 +146,8 @@ function renderResult(){
   if(!result)return;
   const times=$('colorMode').value==='time'?BUDGETS.filter(t=>t<=budget).reverse():[budget];
   const features=times.flatMap(t=>result.byBudget[t].map(p=>clipFeature(p,t,selectedId)));
+  // Les budgets sont cumulés. Le rendu du mode temporel doit préférer la durée la plus courte.
+  
   replaceSource(resultSource,readFeatures({type:'FeatureCollection',features}));
 }
 function renderStats(){
@@ -162,12 +182,12 @@ function inspect(feature,reached){
   replaceSource(selectedSource,[new ol.Feature({geometry:feature.getGeometry().clone()})]);$('inspection').hidden=false;
 }
 async function downloadCartography(kind){
-  if(!result||!dep)return;
+  if(!result)return;
   const btn=$(kind==='pdf'?'mapPdf':'mapPng');
   try{
     btn.disabled=true;
     report('Préparation de la carte '+kind.toUpperCase()+'…');
-    await exportMap({map,format:kind,network,budget,selectedId,accessName:dep.properties.nom,stats:result.stats,
+    await exportMap({map,format:kind,network,budget,selectedId,accessName:selectedId==='all'?'Tous les arrêts prioritaires':dep.properties.nom,stats:result.stats,
       colorMode:$('colorMode').value,allowed:new Set(allowed),showStairs:$('showStairs').checked,
       showContext:$('showContext').checked,showStops:$('showStops').checked,
       sourceDate:datasets[network].metadata?.source_calculated_at});
@@ -197,7 +217,7 @@ async function start(){
     graphs.pmr=buildGraph(data[0],'pmr');graphs.bdtopo=buildGraph(data[1],'bdtopo');
     const osm=await loadOsmDataset(fetchJSON,departureFeatures);
     datasets.osm=osm.dataset;graphs.osm=buildGraph(osm.dataset,'osm');departureFeatures.push(...osm.departures);
-    const params=new URLSearchParams(location.hash.slice(1));if(['pmr','bdtopo','osm'].includes(params.get('reseau')))network=params.get('reseau');if(BUDGETS.includes(Number(params.get('duree'))))budget=Number(params.get('duree'));if(Number(params.get('acces'))>0)selectedId=Number(params.get('acces'));
+    const params=new URLSearchParams(location.hash.slice(1));if(['pmr','bdtopo','osm'].includes(params.get('reseau')))network=params.get('reseau');if(BUDGETS.includes(Number(params.get('duree'))))budget=Number(params.get('duree'));if(params.get('acces')==='all')selectedId='all';else if(Number(params.get('acces'))>0)selectedId=Number(params.get('acces'));
     document.querySelector('input[name="network"][value="'+network+'"]').checked=true;document.querySelector('input[name="budget"][value="'+budget+'"]').checked=true;
     $('dataDate').textContent='Export du '+new Date(datasets.pmr.metadata.exported_at).toLocaleDateString('fr-FR')+'. Données de calcul du '+new Date(datasets.pmr.metadata.source_calculated_at).toLocaleDateString('fr-FR')+'. Copie statique : les mises à jour de la base ne sont pas automatiques.';
     $('dataCount').textContent=number(graphs.pmr.edges.size+graphs.bdtopo.edges.size+graphs.osm.edges.size)+' segments · OpenLayers';
