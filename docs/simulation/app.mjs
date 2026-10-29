@@ -80,8 +80,6 @@ function populateDepartures(){
   const q=normalize($('search').value);
   const candidates=departureFeatures.filter(f=>f.properties.reseau===network).sort((a,b)=>a.properties.nom.localeCompare(b.properties.nom,'fr')||a.properties.acces_id-b.properties.acces_id);
   const filtered=candidates.filter(f=>normalize([f.properties.nom,f.properties.acces_id,f.properties.stop_id].join(' ')).includes(q));
-  if(!q)selectAllHint();
-  function selectAllHint(){ /* Option disponible uniquement sans filtre actif. */ }
   const select=$('departure');select.replaceChildren();
   if(!q)select.append(new Option('Tous les arrêts prioritaires · couverture globale','all'));
   for(const f of filtered){const p=f.properties;select.append(new Option(p.nom+' · accès '+p.acces_id+(p.stop_id?' · '+p.stop_id:'')+(!p.calculable?' · non raccordé':''),p.acces_id));}
@@ -146,8 +144,6 @@ function renderResult(){
   if(!result)return;
   const times=$('colorMode').value==='time'?BUDGETS.filter(t=>t<=budget).reverse():[budget];
   const features=times.flatMap(t=>result.byBudget[t].map(p=>clipFeature(p,t,selectedId)));
-  // Les budgets sont cumulés. Le rendu du mode temporel doit préférer la durée la plus courte.
-  
   replaceSource(resultSource,readFeatures({type:'FeatureCollection',features}));
 }
 function renderStats(){
