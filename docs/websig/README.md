@@ -25,3 +25,8 @@ Aucune clé de base de données dans le code. Le site public sert uniquement des
 Dépôt GitHub Pages configuré sur `main/docs` : ouvrir `/websig/`. Le répertoire `docs/simulation/` reste inchangé.
 
 Licence du code à définir avant réutilisation externe ; respecter les licences des données et d'OpenStreetMap.
+
+## Comparaison exploratoire PMR / OpenStreetMap
+La commande « Comparer les réseaux PMR et OSM » permet de visualiser simultanément les cheminements relevés (PMR, en bleu-vert) et le réseau OSM (gris pointillé), sans fusion des graphes ni modification des simulations. Une option repère les extrémités topologiques apparentes du réseau PMR à moins de 25 m d'un axe OSM, sous forme de points rouges. Cette distance est un critère indicatif de voisinage, non une norme d'accessibilité. Les impasses et limites de relevé peuvent produire des faux positifs. Les escaliers déclarés sont exclus des axes proposés ; l'absence de déclaration ne garantit pas la praticabilité.
+
+La comparaison repose sur les instantanés des fichiers `docs/simulation/data/pmr.geojson` et `docs/simulation/data/osm_graph_01.json` à `osm_graph_06.json`, et se charge seulement à l'activation. Les calculs PMR et OSM de l'ancienne application ne sont pas affectés. Une validation terrain reste obligatoire pour confirmer une connexion utilisable en fauteuil roulant. L'analyse porte sur la proximité géométrique et les extrémités ; elle ne prouve ni que l'interruption est réelle, ni que la continuité OSM est accessible.
